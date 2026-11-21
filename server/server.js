@@ -1,7 +1,17 @@
 import express from "express";
 import cors from "cors";
-import { getAllBooks, getBookById } from "./booksStore.js";
-import { validateBooksQuery, validateIdParam } from "./validate.js";
+import {
+  createBook,
+  getAllBooks,
+  getBookById,
+  hasDuplicateBook,
+  replaceBook,
+} from "./booksStore.js";
+import {
+  validateBooksQuery,
+  validateCompleteBook,
+  validateIdParam,
+} from "./validate.js";
 
 const app = express();
 
@@ -96,6 +106,70 @@ app.get("/api/books/:id", async (req, res, next) => {
     }
 
     return res.status(200).json(book);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// POST /api/books — create a new book and return 201 with Location header
+app.post("/api/books", async (req, res, next) => {
+  try {
+    const bodyCheck = validateCompleteBook(req.body);
+    if (!bodyCheck.valid) {
+      return res.status(400).json({ error: bodyCheck.error });
+    }
+
+    const duplicate = await hasDuplicateBook(
+      bodyCheck.data.title,
+      bodyCheck.data.author
+    );
+    if (duplicate) {
+      return res.status(409).json({
+        error: "A book with the same title and author already exists",
+      });
+    }
+
+    const createdBook = await createBook(bodyCheck.data);
+    return res
+      .status(201)
+      .location(`/api/books/${createdBook.id}`)
+      .json(createdBook);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// PUT /api/books/:id — replace an existing book with a complete validated body
+app.put("/api/books/:id", async (req, res, next) => {
+  try {
+    const idCheck = validateIdParam(req.params.id);
+    if (!idCheck.valid) {
+      return res.status(400).json({ error: idCheck.error });
+    }
+
+    const existingBook = await getBookById(idCheck.value);
+    if (!existingBook) {
+      return res.status(404).json({ error: "Book not found" });
+    }
+
+    const bodyCheck = validateCompleteBook(req.body);
+    if (!bodyCheck.valid) {
+      return res.status(400).json({ error: bodyCheck.error });
+    }
+
+    const duplicate = await hasDuplicateBook(
+      bodyCheck.data.title,
+      bodyCheck.data.author,
+      idCheck.value
+    );
+    if (duplicate) {
+      return res.status(409).json({
+        error: "A book with the same title and author already exists",
+      });
+    }
+
+    const replacedBook = await replaceBook(idCheck.value, bodyCheck.data);
+    return res.status(200).json(replacedBook);
   } catch (err) {
     return next(err);
   }
