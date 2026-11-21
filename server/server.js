@@ -95,6 +95,52 @@ app.get("/api/books", async (req, res, next) => {
   }
 });
 
+// GET /api/stats — compute statistics dynamically from current books
+app.get("/api/stats", async (req, res, next) => {
+  try {
+    const allBooks = await getAllBooks();
+    const total = allBooks.length;
+    const read = allBooks.filter((book) => book.read).length;
+    const unread = total - read;
+
+    const ratedBooks = allBooks.filter((book) => book.rating !== null);
+    const averageRating =
+      ratedBooks.length === 0
+        ? null
+        : Number(
+            (
+              ratedBooks.reduce((sum, book) => sum + book.rating, 0) /
+              ratedBooks.length
+            ).toFixed(2)
+          );
+
+    // Count books per genre, including only genres with at least one book
+    const byGenre = {};
+    for (const book of allBooks) {
+      byGenre[book.genre] = (byGenre[book.genre] || 0) + 1;
+    }
+
+    return res.status(200).json({
+      total,
+      read,
+      unread,
+      averageRating,
+      byGenre,
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// GET /api/crash — deliberate async error route to verify 500 error middleware
+app.get("/api/crash", async (req, res, next) => {
+  try {
+    throw new Error("Intentional crash to test async error handling");
+  } catch (err) {
+    return next(err);
+  }
+});
+
 // GET /api/books/:id — fetch a single book by positive integer ID
 app.get("/api/books/:id", async (req, res, next) => {
   try {
@@ -231,6 +277,21 @@ app.delete("/api/books/:id", async (req, res, next) => {
   } catch (err) {
     return next(err);
   }
+});
+
+// 404 fallback for any unmatched route under /api (avoids Express 4 wildcard)
+app.use("/api", (req, res) => {
+  return res.status(404).json({ error: "Not found" });
+});
+
+// Global error-handling middleware for malformed JSON (400) and server errors (500)
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
+    return res.status(400).json({ error: "Malformed JSON in request body" });
+  }
+
+  console.error(err);
+  return res.status(500).json({ error: "Something went wrong" });
 });
 
 app.listen(PORT, () => {
