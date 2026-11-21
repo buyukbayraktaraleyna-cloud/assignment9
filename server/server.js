@@ -2,15 +2,18 @@ import express from "express";
 import cors from "cors";
 import {
   createBook,
+  deleteBook,
   getAllBooks,
   getBookById,
   hasDuplicateBook,
   replaceBook,
+  updateBook,
 } from "./booksStore.js";
 import {
   validateBooksQuery,
   validateCompleteBook,
   validateIdParam,
+  validatePatchBook,
 } from "./validate.js";
 
 const app = express();
@@ -170,6 +173,61 @@ app.put("/api/books/:id", async (req, res, next) => {
 
     const replacedBook = await replaceBook(idCheck.value, bodyCheck.data);
     return res.status(200).json(replacedBook);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// PATCH /api/books/:id — partially update an existing book
+app.patch("/api/books/:id", async (req, res, next) => {
+  try {
+    const idCheck = validateIdParam(req.params.id);
+    if (!idCheck.valid) {
+      return res.status(400).json({ error: idCheck.error });
+    }
+
+    const existingBook = await getBookById(idCheck.value);
+    if (!existingBook) {
+      return res.status(404).json({ error: "Book not found" });
+    }
+
+    const bodyCheck = validatePatchBook(req.body, existingBook);
+    if (!bodyCheck.valid) {
+      return res.status(400).json({ error: bodyCheck.error });
+    }
+
+    const duplicate = await hasDuplicateBook(
+      bodyCheck.data.title,
+      bodyCheck.data.author,
+      idCheck.value
+    );
+    if (duplicate) {
+      return res.status(409).json({
+        error: "A book with the same title and author already exists",
+      });
+    }
+
+    const updatedBook = await updateBook(idCheck.value, bodyCheck.data);
+    return res.status(200).json(updatedBook);
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// DELETE /api/books/:id — delete a book and return 204 with no body
+app.delete("/api/books/:id", async (req, res, next) => {
+  try {
+    const idCheck = validateIdParam(req.params.id);
+    if (!idCheck.valid) {
+      return res.status(400).json({ error: idCheck.error });
+    }
+
+    const deleted = await deleteBook(idCheck.value);
+    if (!deleted) {
+      return res.status(404).json({ error: "Book not found" });
+    }
+
+    return res.status(204).end();
   } catch (err) {
     return next(err);
   }
