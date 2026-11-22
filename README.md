@@ -397,19 +397,34 @@ The `204` response has no body and no `Content-Type`.
 
 ---
 
-## 5. CORS Preflight Evidence (browser Network tab)
+## 5. CORS Preflight Evidence
 
-![OPTIONS preflight request in the Network tab](docs/preflight.png)
+### 5.1 Browser Network tab
 
-**Description:** With the server and the client running, I opened `http://localhost:5173`, opened DevTools (F12) → **Network**, and clicked **Mark Read** on a book. Two requests to `http://localhost:3000/api/books/:id` appeared:
+![PATCH request in the Network tab](docs/network-patch.png)
 
-1. An **`OPTIONS`** request (type *preflight*) answered with **`204 No Content`**. Its response headers included:
-   - `Access-Control-Allow-Origin: http://localhost:5173`
-   - `Access-Control-Allow-Methods: GET,HEAD,PUT,PATCH,POST,DELETE`
-   - `Access-Control-Allow-Headers: content-type`
-2. The real **`PATCH`** request, answered with **`200 OK`**.
+**Description:** With the server and the client running, I opened `http://localhost:5173`, opened DevTools (F12) → **Network**, and clicked **Mark Read** on *The Hobbit* (id `5`). The Network tab showed the request `PATCH http://localhost:3000/api/books/5` answered with **`200 OK`**, and its response headers included `Access-Control-Allow-Origin: http://localhost:5173`. Because this header matches the page's origin, the browser allowed the page to read the response, and the list and statistics were refreshed with `GET /api/books` and `GET /api/stats`.
 
-The browser sends the preflight first because `PATCH` is not a "simple" method and the request carries `Content-Type: application/json`. Only after the server answers the preflight with the correct headers does the browser send the real request. Simple `GET` requests (the list and the statistics) do not trigger a preflight.
+In my Chrome version the preflight was **not listed as a separate row** in the Network tab, even after clearing the list and trying again (the "Disable cache" option was on). To see the preflight itself, I sent exactly the same `OPTIONS` request the browser sends before this `PATCH` with `curl` (5.2).
+
+### 5.2 The preflight request (`OPTIONS`) → `204`
+
+```text
+> curl --include -X OPTIONS http://localhost:3000/api/books/5 -H "Origin: http://localhost:5173" -H "Access-Control-Request-Method: PATCH" -H "Access-Control-Request-Headers: content-type"
+
+HTTP/1.1 204 No Content
+X-Powered-By: Express
+Access-Control-Allow-Origin: http://localhost:5173
+Vary: Origin, Access-Control-Request-Headers
+Access-Control-Allow-Methods: GET,HEAD,PUT,PATCH,POST,DELETE
+Access-Control-Allow-Headers: content-type
+Content-Length: 0
+Date: Sun, 22 Nov 2026 11:27:23 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+```
+
+**Why a preflight is needed:** the client (`localhost:5173`) and the server (`localhost:3000`) have different ports, so they are different origins. `PATCH` is not a "simple" method and the request carries `Content-Type: application/json`, so before sending it the browser first asks the server with an `OPTIONS` request: *"may origin `http://localhost:5173` send a `PATCH` with a `content-type` header?"*. The `cors` package answers with `204` and the `Access-Control-Allow-Origin`, `Access-Control-Allow-Methods` and `Access-Control-Allow-Headers` headers, and only then the browser sends the real `PATCH`. Simple `GET` requests (the list and the statistics) do not need a preflight.
 
 ---
 
