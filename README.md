@@ -401,8 +401,6 @@ The `204` response has no body and no `Content-Type`.
 
 ### 5.1 Browser Network tab
 
-![PATCH request in the Network tab](docs/network-patch.png)
-
 **Description:** With the server and the client running, I opened `http://localhost:5173`, opened DevTools (F12) → **Network**, and clicked **Mark Read** on *The Hobbit* (id `5`). The Network tab showed the request `PATCH http://localhost:3000/api/books/5` answered with **`200 OK`**, and its response headers included `Access-Control-Allow-Origin: http://localhost:5173`. Because this header matches the page's origin, the browser allowed the page to read the response, and the list and statistics were refreshed with `GET /api/books` and `GET /api/stats`.
 
 In my Chrome version the preflight was **not listed as a separate row** in the Network tab, even after clearing the list and trying again (the "Disable cache" option was on). To see the preflight itself, I sent exactly the same `OPTIONS` request the browser sends before this `PATCH` with `curl` (5.2).
