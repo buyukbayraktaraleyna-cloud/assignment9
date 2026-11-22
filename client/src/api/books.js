@@ -51,10 +51,10 @@ export function getBooks(filters = {}, signal) {
   if (filters.read && filters.read !== "all") {
     params.set("read", filters.read);
   }
-  if (filters.sort) {
+  if (filters.sort && filters.sort !== "id") {
     params.set("sort", filters.sort);
   }
-  if (filters.order) {
+  if (filters.order && filters.order !== "asc") {
     params.set("order", filters.order);
   }
 
