@@ -13,6 +13,9 @@ A full-stack personal reading list manager built with a **Node.js / Express 5 RE
 ```text
 assignment9/
 ├── client/                     # React + Vite frontend SPA
+│   ├── public/
+│   │   ├── favicon.svg
+│   │   └── icons.svg
 │   ├── src/
 │   │   ├── api/
 │   │   │   └── books.js        # Centralized fetch wrapper and API functions
@@ -24,20 +27,18 @@ assignment9/
 │   │   ├── App.jsx             # Main application state, AbortController fetching, CRUD handlers
 │   │   └── main.jsx            # React entry point
 │   ├── .env.example            # Environment variable template (VITE_API_URL)
-│   └── package.json
+│   ├── .gitignore
+│   ├── .oxlintrc.json
+│   ├── README.md
+│   ├── index.html
+│   ├── package-lock.json
+│   ├── package.json
+│   └── vite.config.js
 ├── server/                     # Express 5 REST API backend
-│   ├── src/
-│   │   ├── data/
-│   │   │   └── books.js        # In-memory book store with initial seed data
-│   │   ├── middleware/
-│   │   │   ├── errorHandler.js # Centralized JSON error handler (400/404/409/500)
-│   │   │   ├── logger.js       # HTTP method, path, status, and duration logger
-│   │   │   └── validate.js     # Input, query, and business-rule validation
-│   │   ├── routes/
-│   │   │   └── books.js        # CRUD & stats route handlers
-│   │   └── app.js              # Express app setup, CORS configuration, route mounting
-│   ├── .env.example            # Environment variable template (PORT, CLIENT_ORIGIN)
-│   ├── server.js               # HTTP server entry point
-│   └── package.json
+│   ├── booksStore.js           # In-memory async book store with initial seed data
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── server.js               # Express 5 app setup, CORS, routes, and centralized error handling
+│   └── validate.js             # Input, query, and business-rule validation helpers
 ├── .gitignore
 └── README.md
