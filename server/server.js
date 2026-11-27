@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import mongoose from "mongoose";
 import {
   createBook,
   deleteBook,
@@ -21,7 +22,9 @@ const app = express();
 // Read port and allowed client origin from environment variables with fallbacks
 const PORT = Number(process.env.PORT) || 3000;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
-
+const MONGODB_URI =
+  process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/readinglist";
+  
 // Restrict CORS strictly to the configured single client origin
 app.use(
   cors({
@@ -294,6 +297,23 @@ app.use((err, req, res, next) => {
   return res.status(500).json({ error: "Something went wrong" });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+// Connect to MongoDB first; only start listening once the connection works
+async function start() {
+  try {
+    await mongoose.connect(MONGODB_URI, {
+      // Fail fast instead of waiting 30 seconds when the database is down
+      serverSelectionTimeoutMS: 5000,
+    });
+    console.log("Connected to MongoDB");
+  } catch (err) {
+    // Do not print the connection string: it may contain a password
+    console.error(`Could not connect to MongoDB: ${err.message}`);
+    process.exit(1);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+start();
