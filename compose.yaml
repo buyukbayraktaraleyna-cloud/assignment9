@@ -1,0 +1,16 @@
+# Local MongoDB for the Reading List app
+services:
+  mongo:
+    # Pin the image to a major version
+    image: mongo:8
+    container_name: readinglist-mongo
+    restart: unless-stopped
+    ports:
+      # Publish the port to this computer only (not the whole network)
+      - "127.0.0.1:27017:27017"
+    volumes:
+      # Store the data in a named volume so it survives container restarts
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:
