@@ -68,6 +68,101 @@ function handleDbError(err, res, next) {
 }
 
 
+// GET /api/authors — all authors sorted by name
+app.get("/api/authors", async (req, res, next) => {
+  try {
+    const authors = await Author.find().sort({ name: 1 });
+    return res.status(200).json(authors);
+  } catch (err) {
+    return handleDbError(err, res, next);
+  }
+});
+
+// GET /api/authors/:id — one author
+app.get("/api/authors/:id", async (req, res, next) => {
+  try {
+    if (!isValidId(req.params.id)) {
+      return res.status(400).json({ error: "Invalid author id" });
+    }
+
+    const author = await Author.findById(req.params.id);
+    if (!author) {
+      return res.status(404).json({ error: "Author not found" });
+    }
+
+    return res.status(200).json(author);
+  } catch (err) {
+    return handleDbError(err, res, next);
+  }
+});
+
+// POST /api/authors — create an author (the unique index gives the 409)
+app.post("/api/authors", async (req, res, next) => {
+  try {
+    // Pick only the known fields; an id in the body is ignored
+    const { name, born } = req.body ?? {};
+    const author = await Author.create({ name, born });
+
+    return res
+      .status(201)
+      .location(`/api/authors/${author.id}`)
+      .json(author);
+  } catch (err) {
+    return handleDbError(err, res, next);
+  }
+});
+
+// PATCH /api/authors/:id — change only the fields that were sent
+app.patch("/api/authors/:id", async (req, res, next) => {
+  try {
+    if (!isValidId(req.params.id)) {
+      return res.status(400).json({ error: "Invalid author id" });
+    }
+
+    const author = await Author.findById(req.params.id);
+    if (!author) {
+      return res.status(404).json({ error: "Author not found" });
+    }
+
+    const body = req.body ?? {};
+    if (body.name !== undefined) author.name = body.name;
+    if (body.born !== undefined) author.born = body.born;
+
+    // save() runs all schema validators on the whole document
+    await author.save();
+    return res.status(200).json(author);
+  } catch (err) {
+    return handleDbError(err, res, next);
+  }
+});
+
+// DELETE /api/authors/:id — only an author who has no books
+app.delete("/api/authors/:id", async (req, res, next) => {
+  try {
+    if (!isValidId(req.params.id)) {
+      return res.status(400).json({ error: "Invalid author id" });
+    }
+
+    const author = await Author.findById(req.params.id);
+    if (!author) {
+      return res.status(404).json({ error: "Author not found" });
+    }
+
+    // MongoDB does not protect references, so we check it ourselves
+    const hasBooks = await Book.exists({ author: author._id });
+    if (hasBooks) {
+      return res
+        .status(409)
+        .json({ error: "Cannot delete an author who still has books" });
+    }
+
+    await author.deleteOne();
+    return res.status(204).end();
+  } catch (err) {
+    return handleDbError(err, res, next);
+  }
+});
+
 // GET /api/books — list books with filtering, sorting, and pagination
 app.get("/api/books", async (req, res, next) => {
   try {
