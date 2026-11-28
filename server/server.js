@@ -37,6 +37,37 @@ app.use(
 // Parse incoming JSON bodies before route handlers
 app.use(express.json());
 
+// Check that an id is a real 24-character hex ObjectId
+// (isValidObjectId would also accept any 12-character string)
+function isValidId(id) {
+  return mongoose.isObjectIdOrHexString(id);
+}
+
+// Translate database errors into HTTP responses in one place.
+// Anything unknown is passed on to the error middleware as a real 500.
+function handleDbError(err, res, next) {
+  if (err instanceof mongoose.Error.ValidationError) {
+    // One message per failing field
+    const details = Object.values(err.errors).map((e) => e.message);
+    return res.status(400).json({ error: "Validation failed", details });
+  }
+
+  if (err instanceof mongoose.Error.CastError) {
+    return res.status(400).json({ error: `Invalid value for ${err.path}` });
+  }
+
+  // Duplicate key error raised by a unique index
+  if (err.code === 11000) {
+    const message = err.keyPattern?.name
+      ? "An author with this name already exists"
+      : "A book with the same title and author already exists";
+    return res.status(409).json({ error: message });
+  }
+
+  return next(err);
+}
+
+
 // GET /api/books — list books with filtering, sorting, and pagination
 app.get("/api/books", async (req, res, next) => {
   try {
