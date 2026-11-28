@@ -67,6 +67,29 @@ function handleDbError(err, res, next) {
   return next(err);
 }
 
+// The fields a client may send for a book; everything else is ignored
+const BOOK_FIELDS = ["title", "author", "year", "genre", "read", "rating", "tags"];
+
+// Copy only the known book fields that were actually sent
+function pickBookFields(body) {
+  const source = body ?? {};
+  const picked = {};
+  for (const field of BOOK_FIELDS) {
+    if (source[field] !== undefined) {
+      picked[field] = source[field];
+    }
+  }
+  return picked;
+}
+
+// Return an error message when "author" is not the id of an existing author
+async function checkAuthor(authorId) {
+  // A missing author is reported by the schema's "required" rule
+  if (authorId === undefined) return null;
+  if (!isValidId(authorId)) return "Author must be a valid author id";
+  const exists = await Author.exists({ _id: authorId });
+  return exists ? null : "Author does not exist";
+}
 
 // GET /api/authors — all authors sorted by name
 app.get("/api/authors", async (req, res, next) => {
@@ -272,50 +295,44 @@ app.get("/api/crash", async (req, res, next) => {
   }
 });
 
-// GET /api/books/:id — fetch a single book by positive integer ID
+// GET /api/books/:id — one book with its author populated
 app.get("/api/books/:id", async (req, res, next) => {
   try {
-    const idCheck = validateIdParam(req.params.id);
-    if (!idCheck.valid) {
-      return res.status(400).json({ error: idCheck.error });
+    if (!isValidId(req.params.id)) {
+      return res.status(400).json({ error: "Invalid book id" });
     }
 
-    const book = await getBookById(idCheck.value);
+    // populate replaces the author ObjectId with { id, name }
+    const book = await Book.findById(req.params.id).populate("author", "name");
     if (!book) {
       return res.status(404).json({ error: "Book not found" });
     }
 
     return res.status(200).json(book);
   } catch (err) {
-    return next(err);
+    return handleDbError(err, res, next);
   }
 });
 
-// POST /api/books — create a new book and return 201 with Location header
+// POST /api/books — create a book; a duplicate is rejected by the unique index
 app.post("/api/books", async (req, res, next) => {
   try {
-    const bodyCheck = validateCompleteBook(req.body);
-    if (!bodyCheck.valid) {
-      return res.status(400).json({ error: bodyCheck.error });
+    const data = pickBookFields(req.body);
+
+    const authorError = await checkAuthor(data.author);
+    if (authorError) {
+      return res.status(400).json({ error: authorError });
     }
 
-    const duplicate = await hasDuplicateBook(
-      bodyCheck.data.title,
-      bodyCheck.data.author
-    );
-    if (duplicate) {
-      return res.status(409).json({
-        error: "A book with the same title and author already exists",
-      });
-    }
+    const book = await Book.create(data);
+    await book.populate("author", "name");
 
-    const createdBook = await createBook(bodyCheck.data);
     return res
       .status(201)
-      .location(`/api/books/${createdBook.id}`)
-      .json(createdBook);
+      .location(`/api/books/${book.id}`)
+      .json(book);
   } catch (err) {
-    return next(err);
+    return handleDbError(err, res, next);
   }
 });
 
@@ -394,19 +411,18 @@ app.patch("/api/books/:id", async (req, res, next) => {
 // DELETE /api/books/:id — delete a book and return 204 with no body
 app.delete("/api/books/:id", async (req, res, next) => {
   try {
-    const idCheck = validateIdParam(req.params.id);
-    if (!idCheck.valid) {
-      return res.status(400).json({ error: idCheck.error });
+    if (!isValidId(req.params.id)) {
+      return res.status(400).json({ error: "Invalid book id" });
     }
 
-    const deleted = await deleteBook(idCheck.value);
+    const deleted = await Book.findByIdAndDelete(req.params.id);
     if (!deleted) {
       return res.status(404).json({ error: "Book not found" });
     }
 
     return res.status(204).end();
   } catch (err) {
-    return next(err);
+    return handleDbError(err, res, next);
   }
 });
 
