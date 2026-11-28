@@ -17,6 +17,7 @@ import {
   validatePatchBook,
 } from "./validate.js";
 import Author from "./models/Author.js";
+import Book from "./models/Book.js";
 
 const app = express();
 
@@ -307,7 +308,7 @@ async function start() {
     });
     console.log("Connected to MongoDB");
     // Make sure all indexes (e.g. unique ones) exist before accepting requests
-    await Author.init();
+    await Promise.all([Author.init(), Book.init()]);
   } catch (err) {
     // Do not print the connection string: it may contain a password
     console.error(`Could not connect to MongoDB: ${err.message}`);
